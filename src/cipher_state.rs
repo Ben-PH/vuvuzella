@@ -70,23 +70,23 @@ impl CipherState {
         self,
         assosciated_data: &[u8],
         cipher_text: CipherText,
-    ) -> (Option<Self>, PlainText) {
+    ) -> Result<(Option<Self>, PlainText), (Self, CipherText, CipherError)> {
         assert!(
             !self.key.0.iter().any(|&b| b != 0),
             "invariant broken: attempt to decrypt wth empty key"
         );
         let Ok((text, me_res)) = decrypt(&self.key, self.nonce, assosciated_data, cipher_text)
         else {
-            panic!("todo: handle failed auth on decrypt");
+            panic!("todo: recover the previous nonce, and return error");
         };
 
-        (
+        Ok((
             me_res.map(|n| Self {
                 nonce: n,
                 key: self.key,
             }),
             text,
-        )
+        ))
     }
 }
 
@@ -119,7 +119,7 @@ fn decrypt(
     nonce: Nonce,
     ad: &[u8],
     mut text: CipherText,
-) -> Result<(PlainText, Option<Nonce>), (CipherText, Nonce)> {
+) -> Result<(PlainText, Option<Nonce>), (CipherText, Nonce, CipherError)> {
     assert!(
         !key.0.iter().any(|&b| b != 0),
         "invariant broken: attempt to decrypt wth empty key"
