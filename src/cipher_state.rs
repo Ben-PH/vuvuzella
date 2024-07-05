@@ -1,8 +1,9 @@
 //! just using chacha20poly1305 and blake2s for now.
+use blake2::digest::{typenum::U32, generic_array::GenericArray};
 use chacha20poly1305::{consts::U16, AeadInPlace, KeyInit};
 use zeroize::Zeroize;
 
-use crate::nonce::Nonce;
+use crate::{nonce::Nonce, symm_state::Blake2SHashLen};
 
 #[derive(Zeroize)]
 struct PlainText(Vec<u8>);
@@ -12,7 +13,7 @@ struct CipherText {
 }
 
 const KEY_LEN: usize = 32;
-struct CipherKey([u8; KEY_LEN]);
+struct CipherKey(GenericArray<u8, Blake2SHashLen>);
 
 impl CipherKey {
     fn valid_key(&self) -> bool {
@@ -31,15 +32,27 @@ enum CipherError {
 }
 
 impl CipherState {
-    /// Refreshes the cipher state with a new key, setting nonce to 0.
-    fn reset_key(self, new_key: CipherKey) -> Self {
+    pub(crate) fn init(new_key: GenericArray<u8, Blake2SHashLen>) -> Self {
+        let key = CipherKey(new_key);
         assert!(
-            new_key.valid_key(),
+            key.valid_key(),
+            "invariant breakage: attempt to initialise empty key"
+        );
+        Self {
+            nonce: Nonce::new(),
+            key,
+        }
+    }
+    /// Refreshes the cipher state with a new key, setting nonce to 0.
+    pub(crate) fn reset_key(self, new_key: GenericArray<u8, Blake2SHashLen>) -> Self {
+        let key = CipherKey(new_key);
+        assert!(
+            key.valid_key(),
             "invariant breakage: attempt to reset key to empty key"
         );
         Self {
             nonce: Nonce::new(),
-            key: new_key,
+            key,
         }
     }
 
