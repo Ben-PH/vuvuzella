@@ -31,7 +31,7 @@ pub struct SymmState {
 }
 
 impl SymmState {
-    fn init(proto_name: &[u8]) -> Self {
+    pub(crate) fn init(proto_name: &[u8]) -> Self {
         let init_state = if proto_name.len() > Blake2SHashLen::USIZE {
             let mut hasher = Blake2s256::new();
             blake2::Digest::update(&mut hasher, proto_name);
@@ -66,6 +66,14 @@ impl SymmState {
             .chain_update(data.tag)
             .finalize_fixed();
         new
+    }
+    pub(crate) fn mix_hash(&mut self, data: &[u8]) {
+        let hasher = Blake2s256::new();
+        let new = hasher
+            .chain_update(&self.output_hash)
+            .chain_update(data)
+            .finalize_fixed();
+        self.output_hash = new;
     }
 
     fn encrypt_and_hash(mut self, text: PlainText) -> (Self, CipherText) {
