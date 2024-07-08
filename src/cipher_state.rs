@@ -1,15 +1,15 @@
 //! just using chacha20poly1305 and blake2s for now.
-use blake2::digest::{typenum::U32, generic_array::GenericArray};
+use blake2::digest::{generic_array::GenericArray, typenum::U32};
 use chacha20poly1305::{consts::U16, AeadInPlace, KeyInit};
 use zeroize::Zeroize;
 
 use crate::{nonce::Nonce, symm_state::Blake2SHashLen};
 
 #[derive(Zeroize)]
-struct PlainText(Vec<u8>);
-struct CipherText {
-    text: Vec<u8>,
-    tag: chacha20poly1305::aead::generic_array::GenericArray<u8, U16>,
+pub(crate) struct PlainText(Vec<u8>);
+pub(crate) struct CipherText {
+    pub(crate) text: Vec<u8>,
+    pub(crate) tag: chacha20poly1305::aead::generic_array::GenericArray<u8, U16>,
 }
 
 const KEY_LEN: usize = 32;
@@ -26,7 +26,7 @@ pub struct CipherState {
     key: CipherKey,
 }
 
-enum CipherError {
+pub enum CipherError {
     Opaque,
     Decrypt,
 }
@@ -56,9 +56,11 @@ impl CipherState {
         }
     }
 
-    fn encrypt_with_ad(
+    /// trades current cipher-state + aead encryption detals for the next cipher state + ciphertext
+    /// By "next state": Samke cipher key, with the nonce incremented.
+    pub(crate) fn encrypt_with_ad(
         self,
-        assosciated_data: &[u8],
+        assosciated_data: GenericArray<u8, U32>,
         plain_text: PlainText,
     ) -> (Option<Self>, CipherText) {
         assert!(
@@ -79,7 +81,7 @@ impl CipherState {
         (me_res, text)
     }
 
-    fn decrypt_with_ad(
+    pub(crate) fn decrypt_with_ad(
         self,
         assosciated_data: &[u8],
         cipher_text: CipherText,
@@ -107,7 +109,7 @@ impl CipherState {
 fn encrypt(
     key: &CipherKey,
     nonce: Nonce,
-    ad: &[u8],
+    ad: GenericArray<u8, U32>,
     mut text: PlainText,
 ) -> Result<(CipherText, Option<Nonce>), ()> {
     assert!(
@@ -117,7 +119,7 @@ fn encrypt(
     let (nonce_arr, fresh_nonce) = nonce.chacha_harvest();
     let aead = chacha20poly1305::ChaCha20Poly1305::new(&key.0.into());
 
-    let tag = aead.encrypt_in_place_detached(&nonce_arr.into(), ad, &mut text.0);
+    let tag = aead.encrypt_in_place_detached(&nonce_arr.into(), ad.as_slice(), &mut text.0);
 
     let ct = CipherText {
         text: text.0,
@@ -140,7 +142,7 @@ fn decrypt(
 
     let aead = chacha20poly1305::ChaCha20Poly1305::new(&key.0.into());
     let (n_arr, next_nonce) = nonce.chacha_harvest();
-    match aead.decrypt_in_place(&n_arr.into(), ad, &mut text.text) {
+    match aead.decrypt_in_place_detached(&n_arr.into(), ad, &mut text.text, &text.tag) {
         Ok(()) => Ok((PlainText(text.text), next_nonce)),
         Err(_) => todo!("auth error: recover previous nonce and return it and ciphertext"),
     }

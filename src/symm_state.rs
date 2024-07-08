@@ -7,7 +7,7 @@ use blake2::{
     Blake2s256, Digest,
 };
 
-use crate::cipher_state::CipherState;
+use crate::cipher_state::{CipherState, PlainText, CipherText, CipherError};
 
 pub type Sh256HashLen = U32;
 pub type Sh256BlockLen = U64;
@@ -57,6 +57,36 @@ impl SymmState {
         };
         self.chaining_key = new_key;
         self
+    }
+    fn mix_hash(&mut self, data: &CipherText) {
+        let hasher = Blake2s256::new();
+        let new = hasher.chain_update(self.output_hash).chain_update(&data.text).chain_update(data.tag).finalize_fixed();
+        self.output_hash = new;
+    }
+
+    fn encrypt_and_hash(mut self, text: PlainText) -> (Self, CipherText) {
+        let Some(state) = self.cipher_state else {
+            panic!("Invariant broken: attempt to encrypt without a cipherstate present")
+        };
+
+        let (new_state, ct) = state.encrypt_with_ad(self.output_hash, text);
+        self.cipher_state = new_state;
+        self.mix_hash(&ct);
+        (self, ct)
+    }
+
+    fn decrypt_and_hash(mut self, ad: &[u8], text: CipherText) -> Result<(Self, PlainText), (Self, CipherError)> {
+        let Some(state) = self.cipher_state else {
+            panic!("Invariant broken: attempt to decrypt without a cipherstate present")
+        };
+
+        let Ok((new_state, ct)) = state.decrypt_with_ad(ad, text) else {
+            todo!("handle decrypion error");
+        };
+
+        self.mix_hash(&text);
+
+        unimplemented!();
     }
 }
 
