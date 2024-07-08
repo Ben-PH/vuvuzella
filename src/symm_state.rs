@@ -1,6 +1,6 @@
 use blake2::{
     digest::{
-        generic_array::{ArrayLength, GenericArray},
+        generic_array::{ArrayLength, GenericArray as B2GenericArray},
         typenum::{Unsigned, U128, U32, U64},
         FixedOutput, Mac, Update,
     },
@@ -26,8 +26,8 @@ const DH_LEN: usize = 32;
 
 pub struct SymmState {
     cipher_state: Option<CipherState>,
-    chaining_key: GenericArray<u8, U32>,
-    output_hash: GenericArray<u8, U32>,
+    chaining_key: B2GenericArray<u8, U32>,
+    output_hash: B2GenericArray<u8, U32>,
 }
 
 impl SymmState {
@@ -44,12 +44,12 @@ impl SymmState {
 
         Self {
             cipher_state: None,
-            chaining_key: GenericArray::from_slice(&init_state).clone(),
-            output_hash: *GenericArray::from_slice(&init_state),
+            chaining_key: B2GenericArray::from_slice(&init_state).clone(),
+            output_hash: *B2GenericArray::from_slice(&init_state),
         }
     }
 
-    fn mix_key(mut self, input: GenericArray<u8, U32>) -> Self {
+    fn mix_key(mut self, input: B2GenericArray<u8, U32>) -> Self {
         let (new_key, reinit_key) = hkdf2(&self.chaining_key, &input);
         self.cipher_state = match self.cipher_state {
             Some(k) => Some(k.reset_key(reinit_key)),
@@ -58,7 +58,7 @@ impl SymmState {
         self.chaining_key = new_key;
         self
     }
-    fn get_mix_hash(&self, data: &CipherText) -> GenericArray<u8, U32> {
+    fn get_mix_hash(&self, data: &CipherText) -> B2GenericArray<u8, U32> {
         let hasher = Blake2s256::new();
         let new = hasher
             .chain_update(self.output_hash)
@@ -111,11 +111,11 @@ impl SymmState {
 }
 
 fn hkdf2(
-    chained: &GenericArray<u8, Blake2SHashLen>,
-    input: &GenericArray<u8, Blake2SHashLen>,
+    chained: &B2GenericArray<u8, Blake2SHashLen>,
+    input: &B2GenericArray<u8, Blake2SHashLen>,
 ) -> (
-    GenericArray<u8, Blake2SHashLen>,
-    GenericArray<u8, Blake2SHashLen>,
+    B2GenericArray<u8, Blake2SHashLen>,
+    B2GenericArray<u8, Blake2SHashLen>,
 ) {
     let tmp = blake2::Blake2sMac256::new(chained)
         .chain(input)
@@ -134,7 +134,7 @@ mod test {
 
     #[test]
     fn chain_instead_of_concat() {
-        let a = blake2::Blake2sMac256::new(&GenericArray::from_slice(
+        let a = blake2::Blake2sMac256::new(&B2GenericArray::from_slice(
             b"fizzbuzz000000000000000000000000",
         ));
         let b = a.clone();
