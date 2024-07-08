@@ -7,7 +7,7 @@ use blake2::{
     Blake2s256, Digest,
 };
 
-use crate::cipher_state::{CipherState, PlainText, CipherText, CipherError};
+use crate::cipher_state::{CipherError, CipherState, CipherText, PlainText};
 
 pub type Sh256HashLen = U32;
 pub type Sh256BlockLen = U64;
@@ -58,10 +58,14 @@ impl SymmState {
         self.chaining_key = new_key;
         self
     }
-    fn mix_hash(&mut self, data: &CipherText) {
+    fn get_mix_hash(&self, data: &CipherText) -> GenericArray<u8, U32> {
         let hasher = Blake2s256::new();
-        let new = hasher.chain_update(self.output_hash).chain_update(&data.text).chain_update(data.tag).finalize_fixed();
-        self.output_hash = new;
+        let new = hasher
+            .chain_update(self.output_hash)
+            .chain_update(&data.text)
+            .chain_update(data.tag)
+            .finalize_fixed();
+        new
     }
 
     fn encrypt_and_hash(mut self, text: PlainText) -> (Self, CipherText) {
@@ -71,22 +75,39 @@ impl SymmState {
 
         let (new_state, ct) = state.encrypt_with_ad(self.output_hash, text);
         self.cipher_state = new_state;
-        self.mix_hash(&ct);
+        self.get_mix_hash(&ct);
         (self, ct)
     }
 
-    fn decrypt_and_hash(mut self, ad: &[u8], text: CipherText) -> Result<(Self, PlainText), (Self, CipherError)> {
-        let Some(state) = self.cipher_state else {
+    fn decrypt_and_hash(
+        self,
+        ad: &[u8],
+        text: CipherText,
+    ) -> Result<(Self, PlainText), (Self, CipherError)> {
+        if self.cipher_state.is_none() {
             panic!("Invariant broken: attempt to decrypt without a cipherstate present")
         };
+        let next_hash = self.get_mix_hash(&text);
+        let Self {
+            cipher_state,
+            chaining_key,
+            ..
+        } = self;
 
-        let Ok((new_state, ct)) = state.decrypt_with_ad(ad, text) else {
+
+        let Ok((new_state, pt)) = cipher_state.unwrap().decrypt_with_ad(ad, text) else {
             todo!("handle decrypion error");
         };
 
-        self.mix_hash(&text);
+        Ok((
+            Self {
+                cipher_state: new_state,
+                output_hash: next_hash,
+                chaining_key,
+            },
+            pt
+        ))
 
-        unimplemented!();
     }
 }
 
