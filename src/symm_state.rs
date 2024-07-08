@@ -75,8 +75,7 @@ impl SymmState {
 
         let (new_state, ct) = state.encrypt_with_ad(self.output_hash, text);
         self.cipher_state = new_state;
-        self.get_mix_hash(&ct);
-        todo!("fix ths");
+        self.output_hash = self.get_mix_hash(&ct);
         (self, ct)
     }
 
