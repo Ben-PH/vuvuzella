@@ -76,6 +76,7 @@ impl SymmState {
         let (new_state, ct) = state.encrypt_with_ad(self.output_hash, text);
         self.cipher_state = new_state;
         self.get_mix_hash(&ct);
+        todo!("fix ths");
         (self, ct)
     }
 
@@ -94,7 +95,6 @@ impl SymmState {
             ..
         } = self;
 
-
         let Ok((new_state, pt)) = cipher_state.unwrap().decrypt_with_ad(ad, text) else {
             todo!("handle decrypion error");
         };
@@ -105,9 +105,8 @@ impl SymmState {
                 output_hash: next_hash,
                 chaining_key,
             },
-            pt
+            pt,
         ))
-
     }
 }
 

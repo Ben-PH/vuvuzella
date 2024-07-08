@@ -1,5 +1,9 @@
 //! just using chacha20poly1305 and blake2s for now.
-use chacha20poly1305::{aead::generic_array::GenericArray as CCGenericArr,  consts::{U16, U32}, AeadInPlace, KeyInit};
+use chacha20poly1305::{
+    aead::generic_array::GenericArray as CCGenericArr,
+    consts::{U16, U32},
+    AeadInPlace, KeyInit,
+};
 use zeroize::Zeroize;
 
 use crate::{nonce::Nonce, symm_state::Blake2SHashLen};
@@ -14,7 +18,6 @@ pub(crate) struct CipherText {
 
 const KEY_LEN: usize = 32;
 struct CipherKey(CCGenericArr<u8, Blake2SHashLen>);
-
 
 impl CipherKey {
     fn valid_key(&self) -> bool {
@@ -70,7 +73,7 @@ impl CipherState {
         );
 
         // trade nonce for next-nonce + cipher-text
-        let (next_me, text) = self.do_encrypt(plain_text, assosciated_data);// encrypt(&self.key, self.nonce, assosciated_data, plain_text)
+        let (next_me, text) = self.do_encrypt(plain_text, assosciated_data); // encrypt(&self.key, self.nonce, assosciated_data, plain_text)
 
         // return result
         (next_me, text)
@@ -82,7 +85,7 @@ impl CipherState {
         cipher_text: CipherText,
     ) -> Result<(Option<Self>, PlainText), (Self, CipherText, CipherError)> {
         assert!(
-            !self.key.0.iter().any(|&b| b != 0),
+            self.key.valid_key(),
             "invariant broken: attempt to decrypt wth empty key"
         );
         let Ok(res) = self.do_decrypt(assosciated_data, cipher_text) else {
@@ -93,7 +96,11 @@ impl CipherState {
     }
 
     /// Trades a nonce/key pair and plain-text +ad pair for ciphertext + next nonce
-    pub(crate) fn do_encrypt(self, mut text: PlainText, ad: CCGenericArr<u8, U32>) -> (Option<Self>, CipherText) {
+    pub(crate) fn do_encrypt(
+        self,
+        mut text: PlainText,
+        ad: CCGenericArr<u8, U32>,
+    ) -> (Option<Self>, CipherText) {
         assert!(
             self.key.valid_key(),
             "invariant broken: attempt to encrypt wth empty key"
@@ -120,7 +127,11 @@ impl CipherState {
 
     /// Attempt to trade key + nonce pair to decrypt an ad + ct pair for plain-text and next-key +
     /// nonce par
-    pub(crate) fn do_decrypt(self, ad: &[u8], mut text: CipherText) -> Result<(Option<Self>, PlainText), (CipherText, Nonce, CipherError)> {
+    pub(crate) fn do_decrypt(
+        self,
+        ad: &[u8],
+        mut text: CipherText,
+    ) -> Result<(Option<Self>, PlainText), (CipherText, Nonce, CipherError)> {
         assert!(
             self.key.valid_key(),
             "invariant broken: attempt to decrypt wth empty key"
@@ -128,13 +139,66 @@ impl CipherState {
 
         let aead = chacha20poly1305::ChaCha20Poly1305::new(&self.key.0.into());
         let (n_arr, next_nonce) = self.nonce.chacha_harvest();
-        let decrypt =  aead.decrypt_in_place_detached(&n_arr.into(), ad, &mut text.text, &text.tag);
+        let decrypt = aead.decrypt_in_place_detached(&n_arr.into(), ad, &mut text.text, &text.tag);
 
         let Ok(()) = decrypt else {
             todo!("auth error: recover previous nonce and return it and ciphertext");
         };
 
-        let res = next_nonce.map(|nn| Self{ nonce: nn, key: self.key });
+        let res = next_nonce.map(|nn| Self {
+            nonce: nn,
+            key: self.key,
+        });
         Ok((res, PlainText(text.text)))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn good_init() {
+        let state = CipherState::init([1; 32].into());
+        assert_eq!(state.nonce, Nonce::new());
+    }
+    #[test]
+    fn good_reset() {
+        let fst = CipherState::init([1; 32].into());
+        let reset = fst.reset_key([2; 32].into());
+        assert_eq!(reset.nonce, Nonce::new());
+    }
+
+    #[test]
+    #[should_panic]
+    fn bad_init() {
+        CipherState::init([0; 32].into());
+    }
+
+    #[test]
+    #[should_panic]
+    fn bad_reset() {
+        let fst = CipherState::init([1; 32].into());
+        fst.reset_key([0; 32].into());
+    }
+
+    #[test]
+    fn encryption_round_trip() {
+        let start_text = b"without using any actual techniques that you would use when we give you the job, please do <thing that you really should just use a library for>";
+
+        let initial_state_fn = || CipherState::init((*b"fizzbuzz000000000000000000000000").into());
+        let initial_state_1 = initial_state_fn();
+        let initial_state_2 = initial_state_fn();
+        let text = PlainText(start_text.clone().into());
+        let ad = (*b"foobar00000000000000000000000000").into();
+
+        let (enc_state, ct) = initial_state_1.encrypt_with_ad(ad, text);
+        let enc_state = enc_state.unwrap();
+        assert_eq!(enc_state.nonce, Nonce::new().chacha_harvest().1.unwrap());
+
+        let Ok((Some(dec_state), pt)) = initial_state_2.decrypt_with_ad(ad.as_slice(), ct) else {
+            panic!("bad decrypt");
+        };
+        assert_eq!(dec_state.nonce, Nonce::new().chacha_harvest().1.unwrap());
+        assert_eq!(pt.0.as_slice(), start_text);
     }
 }

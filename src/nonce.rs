@@ -10,7 +10,7 @@ use zeroize::Zeroize;
 // integrated into the encryption and decryption calls such that the required invariants are upheld
 // by lifetime semantics. E.g. a succesful encrypt/decrypt can only occur because an iretreivable,
 // singleton nonce move occured, but in its place you obtain the result of the increment call.
-#[derive(Zeroize)]
+#[derive(Eq, PartialEq, Zeroize)]
 #[cfg_attr(test, derive(Debug))]
 pub struct Nonce(u64);
 
@@ -68,7 +68,7 @@ mod test {
         assert_eq!(ref_arr, last);
     }
     #[test]
-    fn le_constructon() {
+    fn little_endian_constructon() {
         let ref_array = [44, 46, 42, 89, 12, 19, 13, 121];
         let ref_num = u64::from_le_bytes(ref_array.clone());
         let ref_nonce = Nonce(ref_num);
