@@ -17,6 +17,7 @@ pub(crate) struct CipherText {
 }
 
 const KEY_LEN: usize = 32;
+#[derive(Eq, PartialEq)]
 struct CipherKey(CCGenericArr<u8, Blake2SHashLen>);
 
 impl CipherKey {
@@ -25,10 +26,28 @@ impl CipherKey {
     }
 }
 
+#[derive(Eq, PartialEq)]
 pub struct CipherState {
     nonce: Nonce,
     key: CipherKey,
 }
+
+pub struct CipherPair {
+    reader: CipherState,
+    writer: CipherState
+}
+
+impl CipherPair {
+    pub fn new(state: CipherState) -> Self {
+        let CipherState{ nonce, key } = state;
+        let (n1, n2) = nonce.duplicate();
+        Self {
+            reader: CipherState{nonce: n1, key: CipherKey(key.0.clone())},
+            writer: CipherState{nonce: n2, key},
+        }
+    }
+}
+
 
 pub enum CipherError {
     Opaque,
@@ -36,6 +55,8 @@ pub enum CipherError {
 }
 
 impl CipherState {
+    /// On completion of handshake, two cipherstates are produced: one for encryption, the other
+    /// for decryption
     pub(crate) fn init(new_key: CCGenericArr<u8, Blake2SHashLen>) -> Self {
         let key = CipherKey(new_key);
         assert!(

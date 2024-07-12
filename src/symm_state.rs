@@ -6,8 +6,9 @@ use blake2::{
     },
     Blake2s256, Digest,
 };
+use x25519_dalek::{EphemeralSecret, PublicKey};
 
-use crate::cipher_state::{CipherError, CipherState, CipherText, PlainText};
+use crate::cipher_state::{CipherError, CipherState, CipherText, PlainText, CipherPair};
 
 pub type Sh256HashLen = U32;
 pub type Sh256BlockLen = U64;
@@ -24,6 +25,7 @@ pub type Blake2BBlockLen = U128;
 /// using x25519-dalek
 const DH_LEN: usize = 32;
 
+#[derive(Eq, PartialEq)]
 pub struct SymmState {
     cipher_state: Option<CipherState>,
     chaining_key: B2GenericArray<u8, U32>,
@@ -49,14 +51,11 @@ impl SymmState {
         }
     }
 
-    fn mix_key(mut self, input: B2GenericArray<u8, U32>) -> Self {
+    pub(crate) fn mix_key(&mut self, input: &B2GenericArray<u8, U32>) {
         let (new_key, reinit_key) = hkdf2(&self.chaining_key, &input);
-        self.cipher_state = match self.cipher_state {
-            Some(k) => Some(k.reset_key(reinit_key)),
-            None => Some(CipherState::init(reinit_key)),
-        };
+
+        self.cipher_state = Some(CipherState::init(reinit_key));
         self.chaining_key = new_key;
-        self
     }
     fn get_mix_hash(&self, data: &CipherText) -> B2GenericArray<u8, U32> {
         let hasher = Blake2s256::new();
@@ -74,6 +73,15 @@ impl SymmState {
             .chain_update(data)
             .finalize_fixed();
         self.output_hash = new;
+    }
+
+    /// Generates a secret, and mixes the public key into the output hash. Primarily used for
+    /// setting up the writing of an ephemeral public key token
+    pub fn gen_key_and_mix(&mut self) -> EphemeralSecret {
+        let secret = EphemeralSecret::random();
+        let shared_public = PublicKey::from(&secret);
+        self.mix_hash(shared_public.as_bytes());
+        secret
     }
 
     fn encrypt_and_hash(mut self, text: PlainText) -> (Self, CipherText) {
@@ -115,6 +123,10 @@ impl SymmState {
             pt,
         ))
     }
+    pub(crate) fn consume(self) -> CipherPair {
+        CipherPair::new(self.cipher_state.unwrap())
+    }
+
 }
 
 fn hkdf2(

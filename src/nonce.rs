@@ -15,6 +15,9 @@ use zeroize::Zeroize;
 pub struct Nonce(u64);
 
 impl Nonce {
+    pub (crate) fn duplicate(self) -> (Self, Self) {
+        (Self(self.0), self)
+    }
     pub fn new() -> Self {
         Self(0)
     }

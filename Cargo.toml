@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 blake2 = "0.10.6"
+bytes = "1.6.0"
 chacha20poly1305 = "0.10.1"
-x25519-dalek = "2.0.1"
+x25519-dalek = { version = "2.0.1", features = ["getrandom", "serde"] }
 zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
