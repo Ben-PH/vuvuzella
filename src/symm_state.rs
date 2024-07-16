@@ -46,33 +46,31 @@ impl SymmState {
 
         Self {
             cipher_state: None,
-            chaining_key: B2GenericArray::from_slice(&init_state).clone(),
+            chaining_key: *B2GenericArray::from_slice(&init_state),
             output_hash: *B2GenericArray::from_slice(&init_state),
         }
     }
 
     pub(crate) fn mix_key(&mut self, input: &B2GenericArray<u8, U32>) {
-        let (new_key, reinit_key) = hkdf2(&self.chaining_key, &input);
+        let (new_key, reinit_key) = hkdf2(&self.chaining_key, input);
 
         self.cipher_state = Some(CipherState::init(reinit_key));
         self.chaining_key = new_key;
     }
     fn get_mix_hash(&self, data: &CipherText) -> B2GenericArray<u8, U32> {
         let hasher = Blake2s256::new();
-        let new = hasher
+        hasher
             .chain_update(self.output_hash)
             .chain_update(&data.text)
             .chain_update(data.tag)
-            .finalize_fixed();
-        new
+            .finalize_fixed()
     }
     pub(crate) fn mix_hash(&mut self, data: &[u8]) {
         let hasher = Blake2s256::new();
-        let new = hasher
-            .chain_update(&self.output_hash)
+        self.output_hash = hasher
+            .chain_update(self.output_hash)
             .chain_update(data)
             .finalize_fixed();
-        self.output_hash = new;
     }
 
     /// Generates a secret, and mixes the public key into the output hash. Primarily used for

@@ -44,7 +44,7 @@ impl CipherPair {
         Self {
             reader: CipherState {
                 nonce: n1,
-                key: CipherKey(key.0.clone()),
+                key: CipherKey(key.0),
             },
             writer: CipherState { nonce: n2, key },
         }
@@ -129,7 +129,7 @@ impl CipherState {
             "invariant broken: attempt to encrypt wth empty key"
         );
         let (nonce_arr, fresh_nonce) = self.nonce.chacha_harvest();
-        let aead = chacha20poly1305::ChaCha20Poly1305::new(&self.key.0.into());
+        let aead = chacha20poly1305::ChaCha20Poly1305::new(&self.key.0);
 
         let tag = aead.encrypt_in_place_detached(&nonce_arr.into(), ad.as_slice(), &mut text.0);
 

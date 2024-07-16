@@ -22,7 +22,7 @@ impl<'a> HsState<'a> {
     pub fn start(pattern: Pattern, prologue: &'a [u8], proto_name: &'a [u8], role: Role) -> Self {
         let my_secret = EphemeralSecret::random();
         let mut symm_state = SymmState::init(proto_name);
-        if prologue.len() > 0 {
+        if !prologue.is_empty() {
             symm_state.mix_hash(prologue);
         }
         Self {
@@ -78,7 +78,7 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    fn make_sequence<'a>(&self) -> Vec<Vec<TokenSet>> {
+    fn make_sequence(&self) -> Vec<Vec<TokenSet>> {
         match self {
             Pattern::XX => vec![vec![TokenSet::Key(KeyType::Ephemeral)]],
         }
