@@ -3,7 +3,7 @@ use bytes::BytesMut;
 use x25519_dalek::{EphemeralSecret, PublicKey, SharedSecret};
 use zeroize::Zeroize;
 
-use crate::{symm_state::SymmState, cipher_state::CipherPair};
+use crate::{cipher_state::CipherPair, symm_state::SymmState};
 
 #[derive(Zeroize)]
 struct KeyPair(chacha20poly1305::Key);
@@ -61,7 +61,6 @@ impl<'a> HsState<'a> {
         let as_ga = &GenericArray::from_slice(shared.as_ref());
         self.symm_state.mix_key(as_ga);
 
-
         self.symm_state.consume()
     }
 }
@@ -106,7 +105,6 @@ pub enum Role {
     Responder,
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -118,10 +116,8 @@ mod test {
         let resper_bytes = BytesMut::new();
         let symm_state_ref = SymmState::init(proto_name);
 
-        let mut hs_state_initer =
-            HsState::start(Pattern::XX, &[], proto_name, Role::Initiator);
-        let mut hs_state_resper =
-            HsState::start(Pattern::XX, &[], proto_name, Role::Initiator);
+        let mut hs_state_initer = HsState::start(Pattern::XX, &[], proto_name, Role::Initiator);
+        let mut hs_state_resper = HsState::start(Pattern::XX, &[], proto_name, Role::Initiator);
 
         assert!(
             hs_state_initer.symm_state.eq(&symm_state_ref),

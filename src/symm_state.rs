@@ -8,7 +8,7 @@ use blake2::{
 };
 use x25519_dalek::{EphemeralSecret, PublicKey};
 
-use crate::cipher_state::{CipherError, CipherState, CipherText, PlainText, CipherPair};
+use crate::cipher_state::{CipherError, CipherPair, CipherState, CipherText, PlainText};
 
 pub type Sh256HashLen = U32;
 pub type Sh256BlockLen = U64;
@@ -126,7 +126,6 @@ impl SymmState {
     pub(crate) fn consume(self) -> CipherPair {
         CipherPair::new(self.cipher_state.unwrap())
     }
-
 }
 
 fn hkdf2(

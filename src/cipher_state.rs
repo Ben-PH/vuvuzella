@@ -34,20 +34,22 @@ pub struct CipherState {
 
 pub struct CipherPair {
     reader: CipherState,
-    writer: CipherState
+    writer: CipherState,
 }
 
 impl CipherPair {
     pub fn new(state: CipherState) -> Self {
-        let CipherState{ nonce, key } = state;
+        let CipherState { nonce, key } = state;
         let (n1, n2) = nonce.duplicate();
         Self {
-            reader: CipherState{nonce: n1, key: CipherKey(key.0.clone())},
-            writer: CipherState{nonce: n2, key},
+            reader: CipherState {
+                nonce: n1,
+                key: CipherKey(key.0.clone()),
+            },
+            writer: CipherState { nonce: n2, key },
         }
     }
 }
-
 
 pub enum CipherError {
     Opaque,
