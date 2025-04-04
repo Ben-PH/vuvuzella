@@ -1,6 +1,6 @@
 use blake2::{
     digest::{
-        generic_array::{ArrayLength, GenericArray as B2GenericArray},
+        generic_array::GenericArray as B2GenericArray,
         typenum::{Unsigned, U128, U32, U64},
         FixedOutput, Mac, Update,
     },
@@ -150,7 +150,7 @@ mod test {
 
     #[test]
     fn chain_instead_of_concat() {
-        let a = blake2::Blake2sMac256::new(&B2GenericArray::from_slice(
+        let a = blake2::Blake2sMac256::new(B2GenericArray::from_slice(
             b"fizzbuzz000000000000000000000000",
         ));
         let b = a.clone();

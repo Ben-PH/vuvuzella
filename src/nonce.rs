@@ -18,6 +18,7 @@ impl Nonce {
     pub(crate) fn duplicate(self) -> (Self, Self) {
         (Self(self.0), self)
     }
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(0)
     }

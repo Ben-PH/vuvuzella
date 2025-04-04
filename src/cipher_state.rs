@@ -1,4 +1,4 @@
-//! just using chacha20poly1305 and blake2s for now.
+//! just using chacha20poly1305 with blake2s for now.
 use chacha20poly1305::{
     aead::generic_array::GenericArray as CCGenericArr,
     consts::{U16, U32},
@@ -96,7 +96,7 @@ impl CipherState {
         );
 
         // trade nonce for next-nonce + cipher-text
-        let (next_me, text) = self.do_encrypt(plain_text, assosciated_data); // encrypt(&self.key, self.nonce, assosciated_data, plain_text)
+        let (next_me, text) = self.do_encrypt(plain_text, assosciated_data);
 
         // return result
         (next_me, text)
@@ -112,7 +112,7 @@ impl CipherState {
             "invariant broken: attempt to decrypt wth empty key"
         );
         let Ok(res) = self.do_decrypt(assosciated_data, cipher_text) else {
-            panic!("todo: recover the previous nonce, and return error");
+            todo!("recover the previous nonce, and return error");
         };
 
         Ok(res)
@@ -160,7 +160,7 @@ impl CipherState {
             "invariant broken: attempt to decrypt wth empty key"
         );
 
-        let aead = chacha20poly1305::ChaCha20Poly1305::new(&self.key.0.into());
+        let aead = chacha20poly1305::ChaCha20Poly1305::new(&self.key.0);
         let (n_arr, next_nonce) = self.nonce.chacha_harvest();
         let decrypt = aead.decrypt_in_place_detached(&n_arr.into(), ad, &mut text.text, &text.tag);
 
@@ -211,7 +211,7 @@ mod test {
         let initial_state_fn = || CipherState::init((*b"fizzbuzz000000000000000000000000").into());
         let initial_state_1 = initial_state_fn();
         let initial_state_2 = initial_state_fn();
-        let text = PlainText(start_text.clone().into());
+        let text = PlainText((*start_text).into());
         let ad = (*b"foobar00000000000000000000000000").into();
 
         let (enc_state, ct) = initial_state_1.encrypt_with_ad(ad, text);

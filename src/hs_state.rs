@@ -128,7 +128,7 @@ mod test {
         let pubkey_bytes: [u8; 32] = initer_bytes.as_ref()[0..32].try_into().unwrap();
         let resp_pub: PublicKey = PublicKey::from(pubkey_bytes);
 
-        hs_state_resper.read_e(resp_pub.clone());
+        hs_state_resper.read_e(resp_pub);
 
         let channel = hs_state_resper.init_with_ee();
     }
