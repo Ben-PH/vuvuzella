@@ -5,8 +5,11 @@ use zeroize::Zeroize;
 
 use crate::{cipher_state::CipherPair, symm_state::SymmState};
 
+// key for AEAD cipher. spec gives AES256-GCM and chacha20-poly1305 as examples. 
+// TODO: Add other schemes
 #[derive(Zeroize)]
 struct KeyPair(chacha20poly1305::Key);
+
 struct HsState<'a> {
     prologue: &'a [u8],
     proto_name: &'a [u8],
@@ -70,6 +73,23 @@ enum Secret {
     Ephem(EphemeralSecret),
 }
 
+/// (Incomplete)
+/// Fundamental patterns key:
+/// # First character
+/// N: **N**o static key for initiator
+/// K: Static key for initiator **K**nown to responder
+/// X: Static key for initiator **X**mitted to responder
+/// I: Static key for initiator **I**mmediately transmitted to responder, despite reduced or absent ID
+/// hiding
+///
+/// # Second character
+/// N: **N**o static key for responder
+/// K: Static key for responder **K**nown to initiator
+/// X: Static key for responder **X**mitted to initiator
+// TODO: Add some more fundamental patterns.
+// TODO: somehow encapsulate into the type-system the mapping between the pattern as a variant, and
+// the message sequence used.
+#[non_exhaustive]
 pub enum Pattern {
     // NN,
     XX,
@@ -77,6 +97,7 @@ pub enum Pattern {
     // KK,
 }
 
+// TODO: update this to by type-coupeled rather than run-time coupled
 impl Pattern {
     fn make_sequence(&self) -> Vec<Vec<TokenSet>> {
         match self {
@@ -85,6 +106,7 @@ impl Pattern {
     }
 }
 
+#[non_exhaustive]
 enum KeyType {
     Ephemeral,
     // Static
@@ -128,7 +150,7 @@ mod test {
         let pubkey_bytes: [u8; 32] = initer_bytes.as_ref()[0..32].try_into().unwrap();
         let resp_pub: PublicKey = PublicKey::from(pubkey_bytes);
 
-        hs_state_resper.read_e(resp_pub.clone());
+        hs_state_resper.read_e(resp_pub);
 
         let channel = hs_state_resper.init_with_ee();
     }

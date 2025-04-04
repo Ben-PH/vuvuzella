@@ -1,6 +1,6 @@
 use blake2::{
     digest::{
-        generic_array::{ArrayLength, GenericArray as B2GenericArray},
+        generic_array::GenericArray as B2GenericArray,
         typenum::{Unsigned, U128, U32, U64},
         FixedOutput, Mac, Update,
     },
@@ -10,6 +10,8 @@ use x25519_dalek::{EphemeralSecret, PublicKey};
 
 use crate::cipher_state::{CipherError, CipherPair, CipherState, CipherText, PlainText};
 
+// TODO: Instead of spamming types, and organising it just by text-file formatting, arrange into
+// something more structured (such as a trait)
 pub type Sh256HashLen = U32;
 pub type Sh256BlockLen = U64;
 
@@ -22,6 +24,7 @@ pub type Blake2SBlockLen = U64;
 pub type Blake2BHashLen = U64;
 pub type Blake2BBlockLen = U128;
 
+// TODO: make this applicable to more options
 /// using x25519-dalek
 const DH_LEN: usize = 32;
 
@@ -121,11 +124,15 @@ impl SymmState {
             pt,
         ))
     }
+    /// Used at completion of the handshake. Deletes the symmetric state, and provides a reader/writer [`CipherPair`] 
     pub(crate) fn consume(self) -> CipherPair {
         CipherPair::new(self.cipher_state.unwrap())
     }
 }
 
+/// HMAC Key Derivation Function. Provides two outputs.
+// TODO: impliment for 3-tuple outputs. Probably over-engineered if using generics. Will probably
+// want to call this, then do the third chain?
 fn hkdf2(
     chained: &B2GenericArray<u8, Blake2SHashLen>,
     input: &B2GenericArray<u8, Blake2SHashLen>,
@@ -150,7 +157,7 @@ mod test {
 
     #[test]
     fn chain_instead_of_concat() {
-        let a = blake2::Blake2sMac256::new(&B2GenericArray::from_slice(
+        let a = blake2::Blake2sMac256::new(B2GenericArray::from_slice(
             b"fizzbuzz000000000000000000000000",
         ));
         let b = a.clone();
