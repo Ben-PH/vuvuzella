@@ -16,11 +16,14 @@ pub(crate) struct CipherText {
     pub(crate) tag: CCGenericArr<u8, U16>,
 }
 
+// See spec 15.1
 const KEY_LEN: usize = 32;
+
 #[derive(Eq, PartialEq)]
 struct CipherKey(CCGenericArr<u8, Blake2SHashLen>);
 
 impl CipherKey {
+    /// specification dictates no zero'd out keys are invalid
     fn valid_key(&self) -> bool {
         self.0.iter().any(|&b| b != 0)
     }

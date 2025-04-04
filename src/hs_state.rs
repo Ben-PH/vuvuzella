@@ -5,8 +5,10 @@ use zeroize::Zeroize;
 
 use crate::{cipher_state::CipherPair, symm_state::SymmState};
 
+// key for AEAD cipher. spec gives AES256-GCM and chacha20-poly1305 as examples. 
 #[derive(Zeroize)]
 struct KeyPair(chacha20poly1305::Key);
+
 struct HsState<'a> {
     prologue: &'a [u8],
     proto_name: &'a [u8],
@@ -70,6 +72,20 @@ enum Secret {
     Ephem(EphemeralSecret),
 }
 
+/// (Incomplete)
+/// Fundamental patterns key:
+/// # First character
+/// N: **N**o static key for initiator
+/// K: Static key for initiator **K**nown to responder
+/// X: Static key for initiator **X**mitted to responder
+/// I: Static key for initiator **I**mmediately transmitted to responder, despite reduced or absent ID
+/// hiding
+///
+/// # Second character
+/// N: **N**o static key for responder
+/// K: Static key for responder **K**nown to initiator
+/// X: Static key for responder **X**mitted to initiator
+#[non_exhaustive]
 pub enum Pattern {
     // NN,
     XX,
@@ -85,6 +101,7 @@ impl Pattern {
     }
 }
 
+#[non_exhaustive]
 enum KeyType {
     Ephemeral,
     // Static

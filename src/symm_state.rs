@@ -121,11 +121,13 @@ impl SymmState {
             pt,
         ))
     }
+    /// Used at completion of the handshake. Deletes the symmetric state, and provides a reader/writer [`CipherPair`] 
     pub(crate) fn consume(self) -> CipherPair {
         CipherPair::new(self.cipher_state.unwrap())
     }
 }
 
+/// HMAC Key Derivation Function. Provides two outputs.
 fn hkdf2(
     chained: &B2GenericArray<u8, Blake2SHashLen>,
     input: &B2GenericArray<u8, Blake2SHashLen>,
