@@ -6,6 +6,7 @@ use zeroize::Zeroize;
 use crate::{cipher_state::CipherPair, symm_state::SymmState};
 
 // key for AEAD cipher. spec gives AES256-GCM and chacha20-poly1305 as examples. 
+// TODO: Add other schemes
 #[derive(Zeroize)]
 struct KeyPair(chacha20poly1305::Key);
 
@@ -85,6 +86,9 @@ enum Secret {
 /// N: **N**o static key for responder
 /// K: Static key for responder **K**nown to initiator
 /// X: Static key for responder **X**mitted to initiator
+// TODO: Add some more fundamental patterns.
+// TODO: somehow encapsulate into the type-system the mapping between the pattern as a variant, and
+// the message sequence used.
 #[non_exhaustive]
 pub enum Pattern {
     // NN,
@@ -93,6 +97,7 @@ pub enum Pattern {
     // KK,
 }
 
+// TODO: update this to by type-coupeled rather than run-time coupled
 impl Pattern {
     fn make_sequence(&self) -> Vec<Vec<TokenSet>> {
         match self {
